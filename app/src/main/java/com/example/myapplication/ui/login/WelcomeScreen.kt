@@ -20,9 +20,9 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.data.Pet
@@ -45,7 +44,11 @@ import com.example.myapplication.ui.theme.PastelRed
 @Composable
 fun WelcomeScreen(navController: NavController, email: String?) {
     val userEmail = email ?: return
-    var pets by remember { mutableStateOf(UserRepository.getPets(userEmail)) }
+    var pets by remember { mutableStateOf(UserRepository.getPets(userEmail).toList()) }
+
+    fun refreshPets() {
+        pets = UserRepository.getPets(userEmail).toList()
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -60,8 +63,10 @@ fun WelcomeScreen(navController: NavController, email: String?) {
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = {
-                    UserRepository.addPet(userEmail, "", "")
-                    pets = UserRepository.getPets(userEmail)
+                    val newPet = UserRepository.addPet(userEmail, "", "Gato")
+                    if (newPet != null) {
+                        pets = pets + newPet
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -72,12 +77,34 @@ fun WelcomeScreen(navController: NavController, email: String?) {
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(pets, key = { it.id }) { pet ->
-                    PetEditItem(pet = pet, onPetUpdate = {
-                        // No action needed here as state is managed within PetEditItem
-                    }, onPetDelete = {
-                        UserRepository.removePet(userEmail, pet.id)
-                        pets = UserRepository.getPets(userEmail)
-                    })
+                    PetEditItem(
+                        pet = pet,
+                        onNameChange = { newName ->
+                            val updatedPet = pet.copy(name = newName)
+                            // First, update the list in the UI to ensure responsiveness
+                            pets = pets.map { if (it.id == pet.id) updatedPet else it }
+                            // Then, update the data in the repository
+                            val user = UserRepository.findUser(userEmail)
+                            val petIndex = user?.pets?.indexOfFirst { it.id == pet.id }
+                            if (user != null && petIndex != null && petIndex != -1) {
+                                user.pets[petIndex] = updatedPet
+                            }
+                        },
+                        onTypeChange = { newType ->
+                            val updatedPet = pet.copy(type = newType)
+                            pets = pets.map { if (it.id == pet.id) updatedPet else it }
+
+                            val user = UserRepository.findUser(userEmail)
+                            val petIndex = user?.pets?.indexOfFirst { it.id == pet.id }
+                            if (user != null && petIndex != null && petIndex != -1) {
+                                user.pets[petIndex] = updatedPet
+                            }
+                        },
+                        onPetDelete = {
+                            UserRepository.removePet(userEmail, pet.id)
+                            pets = pets.filter { it.id != pet.id }
+                        }
+                    )
                 }
             }
         }
@@ -86,13 +113,16 @@ fun WelcomeScreen(navController: NavController, email: String?) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PetEditItem(pet: Pet, onPetUpdate: () -> Unit, onPetDelete: () -> Unit) {
-    var petName by remember { mutableStateOf(pet.name) }
-    var petType by remember { mutableStateOf(pet.type) }
+fun PetEditItem(
+    pet: Pet,
+    onNameChange: (String) -> Unit,
+    onTypeChange: (String) -> Unit,
+    onPetDelete: () -> Unit
+) {
     var isPetTypeExpanded by remember { mutableStateOf(false) }
     val petTypes = listOf("Gato", "Perro", "Ave", "Otro")
 
-    val textFieldColors = TextFieldDefaults.outlinedTextFieldColors(
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = MaterialTheme.colorScheme.primary,
         unfocusedBorderColor = MaterialTheme.colorScheme.secondary
     )
@@ -104,19 +134,15 @@ fun PetEditItem(pet: Pet, onPetUpdate: () -> Unit, onPetDelete: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = petName,
-                onValueChange = {
-                    petName = it
-                    pet.name = it
-                    onPetUpdate()
-                },
+                value = pet.name,
+                onValueChange = onNameChange,
                 label = { Text("Nombre de la Mascota") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = textFieldColors
             )
             ExposedDropdownMenuBox(expanded = isPetTypeExpanded, onExpandedChange = { isPetTypeExpanded = it }) {
                 OutlinedTextField(
-                    value = petType,
+                    value = pet.type,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Tipo de Mascota") },
@@ -127,10 +153,8 @@ fun PetEditItem(pet: Pet, onPetUpdate: () -> Unit, onPetDelete: () -> Unit) {
                 ExposedDropdownMenu(expanded = isPetTypeExpanded, onDismissRequest = { isPetTypeExpanded = false }) {
                     petTypes.forEach {
                         DropdownMenuItem(text = { Text(it) }, onClick = {
-                            petType = it
-                            pet.type = it
+                            onTypeChange(it)
                             isPetTypeExpanded = false
-                            onPetUpdate()
                         })
                     }
                 }
@@ -151,6 +175,6 @@ fun PetEditItem(pet: Pet, onPetUpdate: () -> Unit, onPetDelete: () -> Unit) {
 @Composable
 fun WelcomeScreenPreview() {
     MyApplicationTheme {
-        WelcomeScreen(rememberNavController(), "user@duoc.cl")
+        WelcomeScreen(rememberNavController(), "usuario@duoc.cl")
     }
 }

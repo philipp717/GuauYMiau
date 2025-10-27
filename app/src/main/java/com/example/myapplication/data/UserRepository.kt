@@ -2,7 +2,8 @@ package com.example.myapplication.data
 
 import java.util.UUID
 
-data class Pet(val id: String = UUID.randomUUID().toString(), var name: String, var type: String)
+// Use val for immutable properties, which is better for Compose state management
+data class Pet(val id: String = UUID.randomUUID().toString(), val name: String, val type: String)
 data class User(val email: String, val password: String, val pets: MutableList<Pet> = mutableListOf())
 
 object UserRepository {
@@ -46,7 +47,7 @@ object UserRepository {
     fun removePet(email: String, petId: String) {
         findUser(email)?.pets?.removeIf { it.id == petId }
     }
-    
+
     fun getPets(email: String): List<Pet> {
         return findUser(email)?.pets ?: emptyList()
     }
