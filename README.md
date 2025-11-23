@@ -4,70 +4,80 @@
 
 ## Descripción
 
-**Guau y Miau** es una aplicación de Android que demuestra una implementación moderna de un flujo de autenticación y gestión de datos de ejemplo. La app, construida 100% en Kotlin, utiliza las últimas librerías de Jetpack, con una interfaz de usuario creada enteramente con Compose y una navegación gestionada por Navigation-Compose.
+**Guau y Miau** es una aplicación de Android moderna desarrollada en Kotlin que implementa una arquitectura **MVVM (Model-View-ViewModel)** robusta. Utiliza **Jetpack Compose** para la interfaz de usuario y sigue las mejores prácticas recomendadas por Google para el desarrollo de apps escalables y mantenibles.
 
-El proyecto es una base excelente para entender los principios de la gestión de estado en Compose, utilizando una arquitectura limpia y desacoplada.
+El proyecto demuestra la integración de persistencia local, consumo de APIs REST, manejo de recursos nativos y navegación compleja.
 
 ## Tecnologías Utilizadas
 
 *   **Lenguaje:** Kotlin
-*   **UI Toolkit:** Jetpack Compose
+*   **Arquitectura:** MVVM (Model-View-ViewModel)
+*   **UI Toolkit:** Jetpack Compose (Material Design 3)
 *   **Navegación:** Jetpack Navigation Compose
-*   **Diseño:** Material 3
-*   **Herramienta de Construcción:** Gradle
+*   **Persistencia de Datos (Local):** Room Database (SQLite)
+*   **Red (API):** Retrofit & Gson
+*   **Carga de Imágenes:** Coil
+*   **Inyección de Dependencias:** Manual (AppContainer)
 
 ## Funcionalidades Principales
 
-#### Flujo de Autenticación
-*   **Registro de Usuarios:** Permite a los nuevos usuarios crear una cuenta y registrar su primera mascota.
-*   **Inicio de Sesión Seguro:** Ofrece un formulario para que los usuarios existentes accedan a la app.
-*   **Navegación Protegida:** Una vez que el usuario inicia sesión, es redirigido a la pantalla principal, eliminando el historial de navegación de las pantallas de autenticación para evitar retornos no deseados.
+#### A. Flujo de Autenticación y Usuarios
+*   **Registro:** Creación de cuentas con validación de campos en tiempo real. Los datos se persisten en una base de datos local segura.
+*   **Login:** Autenticación contra la base de datos local (Room).
+*   **Sesión:** Gestión de estado de sesión a través de ViewModels.
 
-#### Gestión de Mascotas
-*   **Añadir y Eliminar:** Los usuarios pueden añadir nuevas mascotas a su perfil y eliminar las existentes.
-*   **Edición en Tiempo Real:** Es posible cambiar el nombre y el tipo de cada mascota directamente desde la lista, viendo los cambios reflejados instantáneamente.
+#### B. Gestión de Mascotas (CRUD)
+*   **Persistencia:** Las mascotas se guardan en el dispositivo, sobreviviendo al cierre de la app.
+*   **Listado Dinámico:** Uso de `Flow` para actualizaciones reactivas de la UI cuando cambian los datos.
+*   **Edición y Eliminado:** Modificación de nombre/tipo y eliminación de registros con actualización instantánea.
 
-## Arquitectura
+#### C. Integración de API Externa
+*   Conexión con la API pública **Dog CEO** para obtener imágenes aleatorias de perros.
+*   Demostración de manejo de llamadas asíncronas con Coroutines y Retrofit.
 
-El proyecto se apoya en un patrón **Repositorio (Singleton)** para la gestión de datos. El objeto `UserRepository` actúa como la única fuente de verdad (Single Source of Truth), centralizando toda la lógica de negocio y los datos del usuario y sus mascotas en memoria.
+#### D. Recursos Nativos
+*   **Cámara:** Captura de fotos utilizando `ActivityResultContracts`.
+*   **Vibración:** Uso del servicio del sistema para feedback háptico.
+*   **Permisos:** Manejo de permisos en tiempo de ejecución (Runtime Permissions).
 
-Este enfoque, aunque simple, es altamente efectivo para ilustrar la gestión de estado en una aplicación de Compose, garantizando que la interfaz de usuario reaccione de manera predecible a los cambios en los datos.
+## Arquitectura y Estructura
+
+El proyecto sigue el principio de **Separation of Concerns** (Separación de preocupaciones):
+
+*   **Capa de Datos (`data/`):**
+    *   `local/`: Base de datos Room, Entidades y DAOs.
+    *   `network/`: Interfaces de Retrofit para APIs externas.
+    *   `UserRepository`: Repositorio que unifica las fuentes de datos y expone `Flows` a la UI.
+*   **Capa de UI (`ui/`):**
+    *   `ViewModels`: Gestionan el estado de la UI (`UiState`) y la lógica de negocio.
+    *   `Screens`: Composables que solo dibujan la interfaz basada en el estado recibido.
 
 ## Puesta en Marcha
 
 #### Requisitos
-*   Una versión reciente de Android Studio.
-*   Un emulador o dispositivo físico con Android.
+*   Android Studio (versión actual).
+*   JDK 17 o superior.
+*   Dispositivo/Emulador con API 26+ (Recomendado API 35).
 
 #### Pasos
-1.  **Clona el repositorio** en tu máquina local.
-2.  **Abre el proyecto** con Android Studio.
-3.  Espera a que la **sincronización de Gradle** finalice.
-4.  Presiona **"Run" (▶️)** para compilar y ejecutar la aplicación.
-
-#### Credenciales de Prueba
-Para facilitar el acceso y las pruebas, puedes usar el siguiente usuario por defecto:
-
-*   **Correo:** `usuario@duoc.cl`
-*   **Contraseña:** `Password123@`
+1.  **Sincronizar Gradle:** Asegúrate de que todas las dependencias se descarguen.
+2.  **Ejecutar:** Usa el botón "Run" en Android Studio.
+3.  **Emulador:** Si encuentras errores de instalación, realiza un "Wipe Data" en el emulador desde el Device Manager.
 
 ## Estructura del Proyecto
 
-El código fuente está organizado de la siguiente manera para facilitar su comprensión:
-
 ```
-app/
-└── src/
-    └── main/
-        └── java/
-            └── com/example/myapplication/
-                ├── MainActivity.kt         # Actividad principal, aloja el NavHost y define el grafo de navegación.
-                ├── data/
-                │   └── UserRepository.kt   # Repositorio Singleton y modelos de datos (User, Pet).
-                └── ui/
-                    ├── login/
-                    │   ├── LoginScreen.kt      # Composable para el inicio de sesión.
-                    │   ├── RegisterScreen.kt   # Composable para el registro de usuarios.
-                    │   └── WelcomeScreen.kt    # Pantalla de bienvenida y gestión de mascotas.
-                    └── theme/              # Tema de la app (colores, tipografía, etc.).
+app/src/main/java/com/example/myapplication/
+├── data/
+│   ├── local/          # Room (Dao, Entity, Database)
+│   ├── network/        # Retrofit (ApiService)
+│   ├── AppContainer.kt # Inyección de dependencias
+│   └── UserRepository.kt
+├── model/              # Modelos de dominio (User, Pet)
+├── ui/
+│   ├── features/       # Pantallas de funciones nativas (Cámara, GPS)
+│   ├── login/          # Pantallas de Auth (Login, Register, Welcome)
+│   ├── theme/          # Tema Material 3
+│   └── AppViewModelProvider.kt # Factory de ViewModels
+└── MainActivity.kt     # Punto de entrada y NavHost
 ```

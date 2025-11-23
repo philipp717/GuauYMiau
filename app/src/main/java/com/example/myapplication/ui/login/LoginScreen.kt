@@ -21,41 +21,29 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.R
-import com.example.myapplication.data.UserRepository
+import com.example.myapplication.ui.AppViewModelProvider
 import com.example.myapplication.ui.theme.GuauMiauBlue
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.ui.theme.PastelRed
 
 @Composable
-fun LoginScreen(navController: NavController) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    fun validateLogin() {
-        if (UserRepository.validateLogin(email, password)) {
-            errorMessage = null
-            navController.navigate("welcome/$email") {
-                // Avoid multiple copies of the same destination when re-logging in
-                popUpTo("login") { inclusive = true }
-            }
-        } else {
-            errorMessage = "Correo o contraseña incorrectos"
-        }
-    }
+fun LoginScreen(
+    navController: NavController,
+    viewModel: LoginViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -76,8 +64,8 @@ fun LoginScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
+                value = uiState.email,
+                onValueChange = { viewModel.onEmailChange(it) },
                 label = { Text("Correo Electrónico") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -87,8 +75,8 @@ fun LoginScreen(navController: NavController) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
+                value = uiState.password,
+                onValueChange = { viewModel.onPasswordChange(it) },
                 label = { Text("Contraseña") },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
@@ -97,13 +85,19 @@ fun LoginScreen(navController: NavController) {
                     unfocusedBorderColor = MaterialTheme.colorScheme.secondary
                 )
             )
-            errorMessage?.let {
+            uiState.errorMessage?.let {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(it, color = PastelRed)
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { validateLogin() },
+                onClick = {
+                    viewModel.login { email ->
+                        navController.navigate("welcome/$email") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
@@ -120,6 +114,8 @@ fun LoginScreen(navController: NavController) {
 @Composable
 fun LoginScreenPreview() {
     MyApplicationTheme {
-        LoginScreen(rememberNavController())
+        // Note: Preview might fail with DI, usually we pass a fake ViewModel or state, 
+        // but for now just showing layout structure.
+        // LoginScreen(rememberNavController()) 
     }
 }

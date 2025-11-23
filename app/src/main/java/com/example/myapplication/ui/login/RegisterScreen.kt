@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.myapplication.ui.login
 
 import androidx.compose.foundation.Image
@@ -22,8 +24,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,40 +38,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.R
-import com.example.myapplication.data.UserRepository
+import com.example.myapplication.ui.AppViewModelProvider
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.ui.theme.PastelRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterScreen(navController: NavController) {
-    var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var petName by remember { mutableStateOf("") }
-    var petType by remember { mutableStateOf("") }
+fun RegisterScreen(
+    navController: NavController,
+    viewModel: RegisterViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsState()
     var isPetTypeExpanded by remember { mutableStateOf(false) }
     val petTypes = listOf("Gato", "Perro", "Ave", "Otro")
 
-    var fullNameError by remember { mutableStateOf<String?>(null) }
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var passwordError by remember { mutableStateOf<String?>(null) }
-    var confirmPasswordError by remember { mutableStateOf<String?>(null) }
-    var petNameError by remember { mutableStateOf<String?>(null) }
-    var petTypeError by remember { mutableStateOf<String?>(null) }
-
-    fun validateFullName() { /* ... */ }
-    fun validateEmail() { /* ... */ }
-    fun validatePassword() { /* ... */ }
-    fun validateConfirmPassword() { /* ... */ }
-    fun validatePetName() { /* ... */ }
-    fun validatePetType() { /* ... */ }
+    LaunchedEffect(uiState.isRegistrationSuccess) {
+        if (uiState.isRegistrationSuccess) {
+            navController.navigate("login")
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -95,51 +87,75 @@ fun RegisterScreen(navController: NavController) {
                 errorSupportingTextColor = PastelRed
             )
 
-            OutlinedTextField(value = fullName, onValueChange = { fullName = it; validateFullName() }, label = { Text("Nombre Completo") }, isError = fullNameError != null, supportingText = { fullNameError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
-            OutlinedTextField(value = email, onValueChange = { email = it; validateEmail() }, label = { Text("Correo Electrónico") }, isError = emailError != null, supportingText = { emailError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
-            OutlinedTextField(value = password, onValueChange = { password = it; validatePassword() }, label = { Text("Contraseña") }, visualTransformation = PasswordVisualTransformation(), isError = passwordError != null, supportingText = { passwordError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
-            OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it; validateConfirmPassword() }, label = { Text("Confirmar Contraseña") }, visualTransformation = PasswordVisualTransformation(), isError = confirmPasswordError != null, supportingText = { confirmPasswordError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
-            OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono (Opcional)") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+            OutlinedTextField(
+                value = uiState.fullName,
+                onValueChange = { viewModel.onEvent(RegisterUiEvent.FullNameChanged(it)) },
+                label = { Text("Nombre Completo") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
+            OutlinedTextField(
+                value = uiState.email,
+                onValueChange = { viewModel.onEvent(RegisterUiEvent.EmailChanged(it)) },
+                label = { Text("Correo Electrónico") },
+                isError = uiState.emailError != null,
+                supportingText = { uiState.emailError?.let { Text(it) } },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
+            OutlinedTextField(
+                value = uiState.password,
+                onValueChange = { viewModel.onEvent(RegisterUiEvent.PasswordChanged(it)) },
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
+                isError = uiState.passwordError != null,
+                supportingText = { uiState.passwordError?.let { Text(it) } },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
+            OutlinedTextField(
+                value = uiState.confirmPassword,
+                onValueChange = { viewModel.onEvent(RegisterUiEvent.ConfirmPasswordChanged(it)) },
+                label = { Text("Confirmar Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
+                isError = uiState.confirmPasswordError != null,
+                supportingText = { uiState.confirmPasswordError?.let { Text(it) } },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("Registro de Mascotas", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             ExposedDropdownMenuBox(expanded = isPetTypeExpanded, onExpandedChange = { isPetTypeExpanded = it }, modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
-                    value = petType,
+                    value = uiState.petType,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Tipo de Mascota") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isPetTypeExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    isError = petTypeError != null,
-                    supportingText = { petTypeError?.let { Text(it) } },
                     colors = textFieldColors
                 )
                 ExposedDropdownMenu(expanded = isPetTypeExpanded, onDismissRequest = { isPetTypeExpanded = false }) {
                     petTypes.forEach {
                         DropdownMenuItem(text = { Text(it) }, onClick = {
-                            petType = it
-                            validatePetType()
+                            viewModel.onEvent(RegisterUiEvent.PetTypeChanged(it))
                             isPetTypeExpanded = false
                         })
                     }
                 }
             }
-            OutlinedTextField(value = petName, onValueChange = { petName = it; validatePetName() }, label = { Text("Nombre de la Mascota") }, isError = petNameError != null, supportingText = { petNameError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+            OutlinedTextField(
+                value = uiState.petName,
+                onValueChange = { viewModel.onEvent(RegisterUiEvent.PetNameChanged(it)) },
+                label = { Text("Nombre de la Mascota") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = {
-                    // Validation logic...
-                    if (fullNameError == null && emailError == null && passwordError == null && confirmPasswordError == null && petNameError == null && petTypeError == null) {
-                        val success = UserRepository.registerUser(email, password, petName, petType)
-                        if (success) {
-                            navController.navigate("login")
-                        } else {
-                            emailError = "El correo ya está en uso"
-                        }
-                    }
-                },
+                onClick = { viewModel.onEvent(RegisterUiEvent.Submit) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
@@ -153,6 +169,6 @@ fun RegisterScreen(navController: NavController) {
 @Composable
 fun RegisterScreenPreview() {
     MyApplicationTheme {
-        RegisterScreen(rememberNavController())
+        // RegisterScreen(rememberNavController())
     }
 }

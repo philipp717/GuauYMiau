@@ -1,54 +1,50 @@
 package com.example.myapplication.data
 
-import java.util.UUID
+import com.example.myapplication.data.local.PetDao
+import com.example.myapplication.data.local.PetEntity
+import com.example.myapplication.data.local.UserDao
+import com.example.myapplication.data.local.UserEntity
+import com.example.myapplication.model.Pet
+import com.example.myapplication.model.User
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
-// Use val for immutable properties, which is better for Compose state management
-data class Pet(val id: String = UUID.randomUUID().toString(), val name: String, val type: String)
-data class User(val email: String, val password: String, val pets: MutableList<Pet> = mutableListOf())
+class UserRepository(private val userDao: UserDao, private val petDao: PetDao) {
 
-object UserRepository {
-    private val users = mutableListOf<User>()
-
-    init {
-        // Default user for testing
-        val defaultPet = Pet(name = "Gandalf", type = "Gato")
-        val defaultUser = User("usuario@duoc.cl", "Password123@", mutableListOf(defaultPet))
-        users.add(defaultUser)
-    }
-
-    fun registerUser(email: String, password: String, petName: String, petType: String): Boolean {
-        if (users.any { it.email == email }) {
-            return false // User already exists
-        }
-        val newUser = User(email = email, password = password, pets = mutableListOf(Pet(name = petName, type = petType)))
-        users.add(newUser)
-        return true
-    }
-
-    fun validateLogin(email: String, password: String): Boolean {
-        return users.any { it.email == email && it.password == password }
-    }
-
-    fun findUser(email: String): User? {
-        return users.find { it.email == email }
-    }
-
-    fun addPet(email: String, petName: String, petType: String): Pet? {
-        val user = findUser(email)
-        return if (user != null) {
-            val newPet = Pet(name = petName, type = petType)
-            user.pets.add(newPet)
-            newPet
-        } else {
-            null
+    suspend fun registerUser(user: User): Boolean {
+        return try {
+            if (userDao.getUserByEmail(user.email) != null) {
+                false
+            } else {
+                userDao.insertUser(UserEntity(user.email, user.password))
+                true
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 
-    fun removePet(email: String, petId: String) {
-        findUser(email)?.pets?.removeIf { it.id == petId }
+    suspend fun validateLogin(email: String, password: String): Boolean {
+        val user = userDao.getUserByEmail(email)
+        return user != null && user.password == password
     }
 
-    fun getPets(email: String): List<Pet> {
-        return findUser(email)?.pets ?: emptyList()
+    suspend fun addPet(pet: Pet) {
+        petDao.insertPet(PetEntity(name = pet.name, type = pet.type, ownerEmail = pet.ownerEmail))
+    }
+
+    suspend fun deletePet(pet: Pet) {
+        // We need the ID for deletion in Room
+        petDao.deletePet(PetEntity(id = pet.id, name = pet.name, type = pet.type, ownerEmail = pet.ownerEmail))
+    }
+    
+    suspend fun updatePet(pet: Pet) {
+         petDao.updatePet(PetEntity(id = pet.id, name = pet.name, type = pet.type, ownerEmail = pet.ownerEmail))
+    }
+
+    fun getPetsStream(email: String): Flow<List<Pet>> {
+        return petDao.getPetsForUser(email).map { entities ->
+            entities.map { Pet(it.id, it.name, it.type, it.ownerEmail) }
+        }
     }
 }
