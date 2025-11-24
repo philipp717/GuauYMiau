@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,11 +56,13 @@ fun RegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var isPetTypeExpanded by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) } // Controla el diálogo
     val petTypes = listOf("Gato", "Perro", "Ave", "Otro")
 
+    // Observamos si el registro fue exitoso
     LaunchedEffect(uiState.isRegistrationSuccess) {
         if (uiState.isRegistrationSuccess) {
-            navController.navigate("login")
+            showSuccessDialog = true // Mostramos el diálogo en lugar de navegar directo
         }
     }
 
@@ -160,6 +164,49 @@ fun RegisterScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Registrarse")
+            }
+
+            // --- DIÁLOGO DE FELICITACIONES ---
+            if (showSuccessDialog) {
+                AlertDialog(
+                    onDismissRequest = { /* No hacemos nada para obligar a usar el botón */ },
+                    title = {
+                        Text(
+                            text = "¡Felicidades! 🥳",
+                            style = MaterialTheme.typography.headlineMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    text = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Te has registrado correctamente en Guau&Miau.",
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "🎉🐶😺🎉",
+                                style = MaterialTheme.typography.displayLarge
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showSuccessDialog = false
+                                navController.navigate("login")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Ir al Login")
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             }
         }
     }

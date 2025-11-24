@@ -4,10 +4,12 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,31 +44,67 @@ fun NativeFeaturesScreen() {
     val context = LocalContext.current
     var imageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var locationText by remember { mutableStateOf("Ubicación no obtenida") }
-    var hasRequestedPermissions by remember { mutableStateOf(false) }
+    
+    // --- DEFINICIÓN DE PERMISOS ---
+    val galleryPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
 
-    // Camera Launcher
+    // --- LAUNCHERS ---
+    
+    // 1. Launcher para pedir MÚLTIPLES permisos al inicio
+    val multiplePermissionsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        val galleryGranted = permissions[galleryPermission] ?: false
+        
+        if (!cameraGranted || !galleryGranted) {
+            Toast.makeText(context, "Se recomiendan todos los permisos para usar las funciones", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // 2. Launcher Cámara
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) {
         imageBitmap = it
     }
 
-    // Permission Launcher for Camera
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (!isGranted) {
-            Toast.makeText(context, "Permiso de cámara denegado, algunas funciones no estarán disponibles", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    // Request permissions immediately when screen opens
-    LaunchedEffect(Unit) {
-        if (!hasRequestedPermissions) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    // 3. Launcher Galería
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            imageBitmap = if (Build.VERSION.SDK_INT < 28) {
+                @Suppress("DEPRECATION")
+                MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+            } else {
+                val source = ImageDecoder.createSource(context.contentResolver, it)
+                ImageDecoder.decodeBitmap(source)
             }
-            hasRequestedPermissions = true
         }
     }
 
-    // Vibration
+    // --- SOLICITUD AUTOMÁTICA AL INICIO ---
+    LaunchedEffect(Unit) {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // Verificamos Cámara
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+
+        // Verificamos Galería
+        if (ContextCompat.checkSelfPermission(context, galleryPermission) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(galleryPermission)
+        }
+
+        // Si falta alguno, los pedimos todos juntos
+        if (permissionsToRequest.isNotEmpty()) {
+            multiplePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+        }
+    }
+
+    // Vibration logic
     fun vibratePhone() {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -93,40 +131,52 @@ fun NativeFeaturesScreen() {
             Text(text = "Recursos Nativos", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Camera Section
+            // Botón Cámara
             Button(onClick = {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                     cameraLauncher.launch()
                 } else {
-                    // If permission was denied previously or not granted, request it again on button click as fallback
-                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    multiplePermissionsLauncher.launch(arrayOf(Manifest.permission.CAMERA))
                 }
             }) {
                 Text("Tomar Foto (Cámara)")
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Botón Galería
+            Button(onClick = {
+                if (ContextCompat.checkSelfPermission(context, galleryPermission) == PackageManager.PERMISSION_GRANTED) {
+                    galleryLauncher.launch("image/*")
+                } else {
+                    multiplePermissionsLauncher.launch(arrayOf(galleryPermission))
+                }
+            }) {
+                Text("Seleccionar de Galería")
+            }
+
+            // Imagen
             imageBitmap?.let {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 Image(
                     bitmap = it.asImageBitmap(),
-                    contentDescription = "Foto tomada",
+                    contentDescription = "Imagen seleccionada",
                     modifier = Modifier.size(200.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Vibration Section
+            // Vibración
             Button(onClick = { vibratePhone() }) {
                 Text("Vibrar Dispositivo")
             }
 
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Location Placeholder (Simulated for brevity as GPS requires complex permission handling loop)
+            // GPS
             Text(text = locationText)
             Button(onClick = {
-                // Mocking location for demo purposes or use LocationManager if full impl needed
                 locationText = "Lat: -33.4489, Lon: -70.6693 (Simulado)"
             }) {
                 Text("Obtener GPS (Simulado)")
